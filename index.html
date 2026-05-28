@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <title>Notion Heart Counter</title>
+    <style>
+        /* 노션 임베드 최적화: 투명 배경, 스크롤바 숨김 */
+        body { background: transparent; overflow: hidden; }
+        .heart-btn:active { transform: scale(0.9); }
+        
+        /* 텍스트 드래그 선택 방지 (더 자연스러운 버튼 느낌) */
+        button { user-select: none; -webkit-user-select: none; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center h-screen">
+
+    <!-- 하트 버튼 영역 -->
+    <button id="likeBtn" class="heart-btn flex flex-col items-center transition-transform duration-100 ease-in-out cursor-pointer outline-none">
+        <!-- Lucide 아이콘: 렌더링 후 js에서 svg로 바뀜 -->
+        <i data-lucide="heart" id="heartIcon" class="w-10 h-10 text-gray-400 transition-colors duration-300"></i>
+        <!-- 카운터 숫자 (초기값 0) -->
+        <span id="count" class="text-sm font-bold mt-1 font-sans text-gray-600">0</span>
+    </button>
+
+    <!-- 관리자용 초기화 버튼 (기본 숨김) -->
+    <button id="resetBtn" class="hidden mt-4 px-3 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300 transition-colors font-sans shadow-sm">
+        카운트 초기화
+    </button>
+
+    <!-- Firebase 및 로직 처리 -->
+    <script type="module">
+        // Firebase 모듈 불러오기
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, runTransaction, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // 사용자 제공 Firebase Config + databaseURL 추가
+        const firebaseConfig = {
+            apiKey: "AIzaSyD_kt6oeIyli0kPOTUPskNKcpVXyouOJsw",
+            authDomain: "heart-counter-cf70b.firebaseapp.com",
+            projectId: "heart-counter-cf70b",
+            storageBucket: "heart-counter-cf70b.firebasestorage.app",
+            messagingSenderId: "84261444673",
+            appId: "1:84261444673:web:386adaeae6f87ff3033ac0",
+            measurementId: "G-DEC04Z6BXW",
+            // 필수: Realtime Database URL
+            databaseURL: "https://heart-counter-cf70b-default-rtdb.firebaseio.com"
+        };
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        // DB 저장 경로 설정 (notion/heartCount)
+        const countRef = ref(db, 'notion/heartCount');
+
+        // DOM 요소 가져오기
+        const countEl = document.getElementById('count');
+        const likeBtn = document.getElementById('likeBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Lucide 아이콘 초기화
+        lucide.createIcons();
+
+        // 로컬 스토리지 키
+        const LOCAL_KEY = 'notion_heart_liked';
+        let isLiked = localStorage.getItem(LOCAL_KEY) === 'true';
+
+        // 아이콘 UI 업데이트 함수 (하트 색상 변경)
+        function updateUIIcon(likedState) {
+            // Lucide가 <i> 태그를 <svg>로 변환하므로 svg를 찾아서 클래스를 조작합니다.
+            const svgIcon = likeBtn.querySelector('svg');
+            if (!svgIcon) return;
+
+            if (likedState) {
+                svgIcon.classList.remove('text-gray-400');
+                svgIcon.classList.add('text-red-500', 'fill-red-500'); // 빨간색 채우기
+            } else {
+                svgIcon.classList.remove('text-red-500', 'fill-red-500');
+                svgIcon.classList.add('text-gray-400'); // 회색 테두리
+            }
+        }
+
+        // 아이콘 렌더링 후 초기 UI 반영
+        setTimeout(() => updateUIIcon(isLiked), 50);
+
+        // 실시간 DB 데이터 수신 (숫자 업데이트)
+        onValue(countRef, (snapshot) => {
+            const val = snapshot.val();
+            countEl.innerText = val || 0;
+        });
+
+        // 하트 클릭 이벤트 (토글 방식)
+        likeBtn.addEventListener('click', async () => {
+            isLiked = !isLiked; // 상태 토글 (true <-> false)
+            
+            // 로컬 스토리지 업데이트
+            if (isLiked) {
+                localStorage.setItem(LOCAL_KEY, 'true');
+            } else {
+                localStorage.removeItem(LOCAL_KEY);
+            }
+
+            // 클릭 즉시 UI 반응 (빠른 피드백)
+            updateUIIcon(isLiked);
+
+            // DB 업데이트 (트랜잭션으로 동시성 문제 방지)
+            await runTransaction(countRef, (currentData) => {
+                let count = currentData || 0;
+                if (isLiked) {
+                    return count + 1; // 누르면 +1
+                } else {
+                    return Math.max(0, count - 1); // 다시 누르면 -1 (최소 0 유지)
+                }
+            });
+        });
+
+        // --- 관리자 모드 로직 ---
+        // 주소창에 ?admin=true 가 있으면 버튼 표시
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('admin') === 'true') {
+            resetBtn.classList.remove('hidden');
+            
+            // 초기화 버튼 클릭 이벤트
+            resetBtn.addEventListener('click', async () => {
+                await set(countRef, 0); // DB 강제 0으로 초기화
+                localStorage.removeItem(LOCAL_KEY); // 본인 로컬 기록 삭제
+                isLiked = false;
+                updateUIIcon(false); // 빈 하트로 되돌리기
+                
+                // 완료 메시지 표시 후 원상복구
+                const originalText = resetBtn.innerText;
+                resetBtn.innerText = "초기화 완료!";
+                setTimeout(() => {
+                    resetBtn.innerText = originalText;
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
