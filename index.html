@@ -9,26 +9,41 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <title>Notion Heart Counter</title>
     <style>
-        /* 노션 임베드 최적화: 투명 배경, 스크롤바 숨김 */
-        body { background: transparent; overflow: hidden; }
-        .heart-btn:active { transform: scale(0.9); }
+        /* 노션 임베드 최적화: 투명 배경, 스크롤바 숨김, 여백 제거 */
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: transparent; 
+            overflow: hidden; 
+        }
+        
+        /* 버튼 클릭 시 띠용~ 하는 자연스러운 애니메이션 */
+        .heart-btn:active #heartIcon { transform: scale(0.85); }
+        .heart-btn:active #count { transform: scale(0.95); }
         
         /* 텍스트 드래그 선택 방지 (더 자연스러운 버튼 느낌) */
         button { user-select: none; -webkit-user-select: none; }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center h-screen">
+<body class="relative"> <!-- 관리자 버튼 띄우기를 위해 relative 추가 -->
 
-    <!-- 하트 버튼 영역 -->
-    <button id="likeBtn" class="heart-btn flex flex-col items-center transition-transform duration-100 ease-in-out cursor-pointer outline-none">
-        <!-- Lucide 아이콘: 렌더링 후 js에서 svg로 바뀜 -->
-        <i data-lucide="heart" id="heartIcon" class="w-10 h-10 text-gray-400 transition-colors duration-300"></i>
-        <!-- 카운터 숫자 (초기값 0) -->
-        <span id="count" class="text-sm font-bold mt-1 font-sans text-gray-600">0</span>
+    <!-- 
+      하트 버튼 영역 
+      수정됨: w-full h-full을 주어 임베드 화면 전체를 버튼으로 만듦.
+      어디를 클릭해도 하트가 눌리게 하여 모바일/PC 모두에서 사용성 극대화.
+    -->
+    <button id="likeBtn" class="heart-btn w-full h-full flex flex-col items-center justify-center cursor-pointer outline-none tap-highlight-transparent">
+        <!-- Lucide 아이콘: 렌더링 후 js에서 svg로 바뀜 (트랜지션 애니메이션 분리) -->
+        <i data-lucide="heart" id="heartIcon" class="w-10 h-10 text-gray-400 transition-all duration-200 ease-out"></i>
+        <!-- 카운터 숫자 -->
+        <span id="count" class="text-sm font-bold mt-1 font-sans text-gray-600 transition-all duration-200">0</span>
     </button>
 
-    <!-- 관리자용 초기화 버튼 (기본 숨김) -->
-    <button id="resetBtn" class="hidden mt-4 px-3 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300 transition-colors font-sans shadow-sm">
+    <!-- 관리자용 초기화 버튼 (기본 숨김) 
+         수정됨: 하트 정렬에 영향을 주지 않도록 화면 우측 상단(absolute)에 고정 -->
+    <button id="resetBtn" class="hidden absolute top-2 right-2 px-3 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300 transition-colors font-sans shadow-sm z-10">
         카운트 초기화
     </button>
 
@@ -47,8 +62,8 @@
             messagingSenderId: "84261444673",
             appId: "1:84261444673:web:386adaeae6f87ff3033ac0",
             measurementId: "G-DEC04Z6BXW",
-            // 필수: Realtime Database URL
-            databaseURL: "https://heart-counter-cf70b-default-rtdb.asia-southeast1.firebasedatabase.app"
+            // 필수: Realtime Database URL (본인의 실제 지역 URL로 변경)
+            databaseURL: "https://heart-counter-cf70b-default-rtdb.asia-northeast3.firebasedatabase.app"
         };
 
         // Firebase 초기화
